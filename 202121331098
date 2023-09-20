@@ -1,0 +1,114 @@
+package com.example.demo3.controller;
+
+import org.ansj.recognition.impl.StopRecognition;
+import org.ansj.splitWord.analysis.ToAnalysis;
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.*;
+
+public class CosAlgorithm
+{
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        System.out.print("请输入第一个文件路径：");
+        String filePath1 = scanner.nextLine();
+        System.out.print("请输入第二个文件路径：");
+        String filePath2 = scanner.nextLine();
+        System.out.print("请输入结果路径：");
+        String resultFilePath = scanner.nextLine();
+        scanner.close();
+
+        try {
+            String content1 = readFile(filePath1);
+            String content2 = readFile(filePath2);
+            System.out.println("content1:"+content1);
+            System.out.println("content1:"+content2);
+
+            Map<String,Integer> map1 = countWordFrequency(content1);
+            Map<String,Integer> map2 = countWordFrequency(content2);
+
+            Set<String> set1 = map1.keySet();
+            Set<String> set2 = map2.keySet();
+            Set<String> setAll = new HashSet<>();
+            setAll.addAll(set1);
+            setAll.addAll(set2);
+
+            Map<String, Integer> vector1 = buildVector(setAll, set1, map1);
+            Map<String, Integer> vector2 = buildVector(setAll, set2, map2);
+
+            double similarity = calculateCosineSimilarity(vector1, vector2);
+
+            writeResultToFile(resultFilePath, similarity);
+
+            System.out.println("余弦相似度: " + similarity);
+        } catch (IOException e) {
+            System.out.println("发生异常: " + e.getMessage());
+        }
+    }
+
+    private static String readFile(String filePath) throws IOException {
+        StringBuilder content = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+            String line;
+               while ((line = reader.readLine()) != null) {
+                content.append(line);
+            }
+        }
+        return content.toString();
+    }
+
+    private static Map<String, Integer> countWordFrequency(String content) {
+        StopRecognition filter = new StopRecognition();
+        filter.insertStopNatures("w");
+
+        Map<String, Integer> frequencyMap = new HashMap<>();
+
+        ToAnalysis.parse(content).recognition(filter).forEach(item -> {
+            int count = frequencyMap.getOrDefault(item.getName(), 0);
+            frequencyMap.put(item.getName(), count + 1);
+        });
+
+        return frequencyMap;
+    }
+
+    private static Map<String, Integer> buildVector(Set<String> setAll, Set<String> set, Map<String, Integer> frequencyMap) {
+        Map<String, Integer> vector = new HashMap<>();
+
+        for (String item : setAll) {
+            if (set.contains(item)) {
+                vector.put(item, frequencyMap.get(item));
+            } else {
+                vector.put(item, 0);
+            }
+        }
+
+        return vector;
+    }
+
+    private static double calculateCosineSimilarity(Map<String, Integer> vector1, Map<String, Integer> vector2) {
+        int sum = 0;
+        long sq1 = 0;
+        long sq2 = 0;
+
+        for (String key : vector1.keySet()) {
+            int value1 = vector1.get(key);
+            int value2 = vector2.get(key);
+
+            sum += value1 * value2;
+            sq1 += value1 * value1;
+            sq2 += value2 * value2;
+        }
+
+        return sum / (Math.sqrt(sq1) * Math.sqrt(sq2));
+    }
+
+    private static void writeResultToFile(String filePath, double similarity) throws IOException {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath))) {
+            writer.write("余弦相似度: " + similarity);
+        }
+    }
+}
